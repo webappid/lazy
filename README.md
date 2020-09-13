@@ -34,7 +34,7 @@ What you do just create script like this:
 
     $profile = new Profile();
 
-    $profile = Lazy:copyFromArray($profileArray, $profile, Lazy:AUTOCAST);
+    $profile = Lazy::copyFromArray($profileArray, $profile, Lazy::AUTOCAST);
 
     echo $profile->name
 ````
@@ -87,7 +87,7 @@ $member->name = 'John Doe';
 $member->age = 17;
 
 $profile = new Profile();
-$profile Lazy:copy($member, $profile, Lazy:AUTOCAST);
+$profile Lazy::copy($member, $profile, Lazy::AUTOCAST);
 
 echo $profile->name;
 
