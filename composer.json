@@ -1,0 +1,27 @@
+{
+  "name": "webappid/lazy",
+  "description": "Laravel Lazy",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Dyan Galih",
+      "email": "dyan.galih@gmail.com"
+    }
+  ],
+  "minimum-stability": "dev",
+  "autoload": {
+    "psr-4": {
+      "WebAppId\\Lazy\\": "src"
+    }
+  },
+  "require": {
+    "php": ">=7.2.0",
+    "illuminate/support": "^7.0|^8.0",
+    "ext-json": "*"
+  },
+  "extra": {
+    "branch-alias": {
+      "dev-master": "1.0-dev"
+    },
+  }
+}
