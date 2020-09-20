@@ -7,7 +7,6 @@ namespace WebAppId\Lazy\Traits;
 
 
 use Illuminate\Contracts\Container\BindingResolutionException;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
@@ -24,17 +23,15 @@ trait RepositoryTrait
     /**
      * @var array
      */
-    private $column = [];
-
+    protected $joinTable = [];
     /**
      * @var array
      */
-    protected $joinTable = [];
+    private $column = [];
 
     /**
      * @param Model $model
      * @return Model
-     * @throws BindingResolutionException
      */
     protected function getJoin(Model $model)
     {
@@ -42,14 +39,18 @@ trait RepositoryTrait
 
         $builder = $model;
         foreach ($this->joinTable as $key => $value) {
-            $table = app()->make($value->class);
-            $this->column[$key] = $table->getColumns();
-            $builder = $builder->join(
-                $table->getTable() . ' as ' . $key,
-                (strpos($value->foreign, '.') === false ? $model->getTable() . '.' : '') . $value->foreign,
-                '=',
-                (isset($value->primary) ? $value->primary : $table->getTable() . '.' . $table->getKeyName()),
-                isset($value->type) ? $value->type : 'inner');
+            try {
+                $table = app()->make($value->class);
+                $this->column[$key] = $table->getColumns();
+                $builder = $builder->join(
+                    $table->getTable() . ' as ' . $key,
+                    (strpos($value->foreign, '.') === false ? $model->getTable() . '.' : '') . $value->foreign,
+                    '=',
+                    (isset($value->primary) ? $value->primary : $table->getTable() . '.' . $table->getKeyName()),
+                    isset($value->type) ? $value->type : 'inner');
+            } catch (BindingResolutionException $e) {
+                report($e);
+            }
         }
         return $builder;
     }
