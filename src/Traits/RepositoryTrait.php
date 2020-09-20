@@ -6,6 +6,7 @@
 namespace WebAppId\Lazy\Traits;
 
 
+use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -32,8 +33,8 @@ trait RepositoryTrait
 
     /**
      * @param Model $model
-     * @param array $joinTable
-     * @throws \Illuminate\Contracts\Container\BindingResolutionException
+     * @return Model
+     * @throws BindingResolutionException
      */
     protected function getJoin(Model $model)
     {
