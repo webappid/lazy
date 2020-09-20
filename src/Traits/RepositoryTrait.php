@@ -6,7 +6,6 @@
 namespace WebAppId\Lazy\Traits;
 
 
-use Illuminate\Contracts\Container\BindingResolutionException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -27,35 +26,40 @@ trait RepositoryTrait
     private $column = [];
 
     /**
+     * @var array
+     */
+    protected $joinTable = [];
+
+    /**
      * @param Model $model
      * @param array $joinTable
-     * @return Builder
-     * @throws BindingResolutionException
+     * @throws \Illuminate\Contracts\Container\BindingResolutionException
      */
-    protected function getJoin(Model $model,
-                               array $joinTable = []): Builder
+    protected function getJoin(Model $model)
     {
-        $builder = $model;
+        $this->column[$model->getTable()] = $model->getColumns();
 
-        foreach ($joinTable as $key => $value) {
-            $table = app()->make($value['class']);
+        $builder = $model;
+        foreach ($this->joinTable as $key => $value) {
+            $table = app()->make($value->class);
             $this->column[$key] = $table->getColumns();
             $builder = $builder->join(
                 $table->getTable() . ' as ' . $key,
-                (strpos($value['foreign'], '.') === false ? $model->getTable() . '.' : '') . $value['foreign'],
+                (strpos($value->foreign, '.') === false ? $model->getTable() . '.' : '') . $value->foreign,
                 '=',
-                (isset($value['primary']) ? $value['primary'] : $table->getTable() . '.' . $table->getKeyName()),
-                isset($value['type']) ? $value['type'] : 'inner');
+                (isset($value->primary) ? $value->primary : $table->getTable() . '.' . $table->getKeyName()),
+                isset($value->type) ? $value->type : 'inner');
         }
         return $builder;
     }
 
     /**
+     * @param bool $isAssociative
      * @return array
      */
     protected function getColumn(bool $isAssociative = false): array
     {
-        $resultColumn =[];
+        $resultColumn = [];
         foreach ($this->column as $table => $column) {
             foreach ($column as $key => $value) {
                 if (!isset($resultColumn[$key])) {

@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Cache;
  * Date: 18/09/2020
  * Time: 09.09
  * Class BaseModel
- * @package WebAppId\Lazy\Traits
+ * @package ${NAMESPACE}
  */
 trait ModelTrait
 {
