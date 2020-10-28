@@ -72,17 +72,20 @@ trait RepositoryTrait
                     if(Str::contains($value, 'as')){
                         $values = explode(' as ', $value);
                         $value = $values[0];
+                    }elseif(Str::contains($value, 'AS')){
+                        $values = explode(' AS ', $value);
+                        $value = $values[0];
                     }
                     if (!isset($resultColumn[$key])) {
-                        $resultColumn[$key] = DB::raw($value . ' as ' . $key);
+                        $resultColumn[$key] = DB::raw($value . ' AS ' . $key);
                     }else{
-                        $resultColumn[$table . '_' . $key] = DB::raw($value . ' as ' . Str::singular($table) . '_' . $key);
+                        $resultColumn[$table . '_' . $key] = DB::raw($value . ' AS ' . Str::singular($table) . '_' . $key);
                     }
                 }else{
                     if (!isset($resultColumn[$key])) {
                         $resultColumn[$key] = $value;
                     } else {
-                        $resultColumn[$table . '_' . $key] = $table . '.' . $key . ' as ' . Str::singular($table) . '_' . $key;
+                        $resultColumn[$table . '_' . $key] = $table . '.' . $key . ' AS ' . Str::singular($table) . '_' . $key;
                     }
                 }
             }
