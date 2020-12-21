@@ -129,6 +129,81 @@ class Lazy
     }
 
     /**
+     * @param ReflectionProperty $property
+     * @return mixed|null
+     */
+    private static function getVar(ReflectionProperty $property)
+    {
+        $typeMapping = [];
+        $typeMapping['int'] = 'integer';
+        $typeMapping['bool'] = 'boolean';
+
+        // Get the content of the @var annotation
+        if (preg_match('/@var\s+([^\s]+)/', $property->getDocComment(), $matches)) {
+            if (isset($typeMapping[$matches[1]])) {
+                return $typeMapping[$matches[1]];
+            } else {
+                return $matches[1];
+            }
+        } else {
+            return null;
+        }
+    }
+
+    private static function castValue($propertyClass, $from)
+    {
+        switch ($propertyClass) {
+            case "integer":
+                $value = (int)$from;
+                break;
+            case "float":
+                $value = (float)$from;
+                break;
+            case "double":
+                $value = (double)$from;
+                break;
+            case "boolean":
+                $value = (boolean)$from;
+                break;
+            case "object":
+                $value = (object)$from;
+                break;
+            case "array":
+                $value = (array)$from;
+                break;
+            default :
+                $value = (string)$from;
+                break;
+        }
+        return $value;
+    }
+
+    /**
+     * @param object $fromClass
+     * @param object $toClass
+     * @param array $mappings
+     * @return object
+     */
+    public static function transform(object $fromClass, object $toClass, array $mappings = []): object
+    {
+        foreach (get_object_vars($toClass) as $key => $value) {
+            $propertyClass = self::_getVarValue($toClass, $key);
+            if (isset($fromClass->$key)) {
+                $toClass->$key = self::castValue($propertyClass, $fromClass->$key);
+            }
+        }
+
+        foreach ($mappings as $mapping => $value) {
+            if (property_exists($toClass, $mapping)) {
+                $propertyClass = self::_getVarValue($toClass, $mapping);
+                $toClass->$mapping = self::castValue($propertyClass, $fromClass->$value);
+            }
+        }
+
+        return $toClass;
+    }
+
+    /**
      * @param object $class
      * @return bool
      * @throws Exception
@@ -143,6 +218,18 @@ class Lazy
         }
 
         return $status;
+    }
+
+    /**
+     * @param string $fromJson
+     * @param object $toClass
+     * @param int $option
+     * @return object
+     * @throws Exception
+     */
+    public static function copyFromJson(string $fromJson, object $toClass, int $option = self::NONE): object
+    {
+        return self::copyFromArray(json_decode($fromJson, true), $toClass, $option);
     }
 
     /**
@@ -181,67 +268,5 @@ class Lazy
 
         }
         return $toClass;
-    }
-
-    private static function castValue($propertyClass, $from)
-    {
-        switch ($propertyClass) {
-            case "integer":
-                $value = (int)$from;
-                break;
-            case "float":
-                $value = (float)$from;
-                break;
-            case "double":
-                $value = (double)$from;
-                break;
-            case "boolean":
-                $value = (boolean)$from;
-                break;
-            case "object":
-                $value = (object)$from;
-                break;
-            case "array":
-                $value = (array)$from;
-                break;
-            default :
-                $value = (string)$from;
-                break;
-        }
-        return $value;
-    }
-
-    /**
-     * @param string $fromJson
-     * @param object $toClass
-     * @param int $option
-     * @return object
-     * @throws Exception
-     */
-    public static function copyFromJson(string $fromJson, object $toClass, int $option = self::NONE): object
-    {
-        return self::copyFromArray(json_decode($fromJson, true), $toClass, $option);
-    }
-
-    /**
-     * @param ReflectionProperty $property
-     * @return mixed|null
-     */
-    private static function getVar(ReflectionProperty $property)
-    {
-        $typeMapping = [];
-        $typeMapping['int'] = 'integer';
-        $typeMapping['bool'] = 'boolean';
-
-        // Get the content of the @var annotation
-        if (preg_match('/@var\s+([^\s]+)/', $property->getDocComment(), $matches)) {
-            if (isset($typeMapping[$matches[1]])) {
-                return $typeMapping[$matches[1]];
-            } else {
-                return $matches[1];
-            }
-        } else {
-            return null;
-        }
     }
 }
