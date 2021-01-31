@@ -179,6 +179,19 @@ class Lazy
     }
 
     /**
+     * @param array $datas
+     * @return array
+     */
+    public static function arrayNullToEmpty(array $datas): array
+    {
+        $newData = [];
+        foreach ($datas as $key => $value) {
+            $newData[$key] = $value == null ? "" : $value;
+        }
+        return $newData;
+    }
+
+    /**
      * @param object $fromClass
      * @param object $toClass
      * @param array $mappings
