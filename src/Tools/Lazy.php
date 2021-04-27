@@ -171,8 +171,11 @@ class Lazy
             case "array":
                 $value = (array)$from;
                 break;
-            default :
+            case "string":
                 $value = (string)$from;
+                break;
+            default :
+                $value = $from;
                 break;
         }
         return $value;
