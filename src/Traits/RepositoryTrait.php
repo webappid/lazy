@@ -68,22 +68,23 @@ trait RepositoryTrait
 
         foreach ($this->column as $table => $column) {
             foreach ($column as $key => $value) {
-                if($value instanceof Expression){
-                    if(Str::contains($value, 'as')){
+                if ($value instanceof Expression) {
+                    if (Str::contains($value, 'as')) {
                         $values = explode(' as ', $value);
                         $value = $values[0];
-                    }elseif(Str::contains($value, 'AS')){
+                    } elseif (Str::contains($value, 'AS')) {
                         $values = explode(' AS ', $value);
                         $value = $values[0];
                     }
                     if (!isset($resultColumn[$key])) {
                         $resultColumn[$key] = DB::raw($value . ' AS ' . $key);
-                    }else{
+                    } else {
                         $resultColumn[$table . '_' . $key] = DB::raw($value . ' AS ' . Str::singular($table) . '_' . $key);
                     }
-                }else{
+                } else {
                     if (!isset($resultColumn[$key])) {
-                        $resultColumn[$key] = $value;
+                        $values = explode('.', $value);
+                        $resultColumn[$key] = $table . '.' . $values[1];
                     } else {
                         $resultColumn[$table . '_' . $key] = $table . '.' . $key . ' AS ' . Str::singular($table) . '_' . $key;
                     }
