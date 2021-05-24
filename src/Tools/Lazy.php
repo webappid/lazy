@@ -277,8 +277,6 @@ class Lazy
                 $propertyClass = self::_getVarValue($toClass, $key);
                 if (isset($fromArray[$key])) {
                     $toClass->$key = self::castValue($propertyClass, $fromArray[$key]);
-                } else {
-                    $toClass->$key = null;
                 }
             }
 
