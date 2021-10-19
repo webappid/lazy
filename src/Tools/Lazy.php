@@ -4,6 +4,7 @@
 namespace WebAppId\Lazy\Tools;
 
 use Exception;
+use Illuminate\Support\Str;
 use ReflectionException;
 use ReflectionProperty;
 
@@ -71,12 +72,17 @@ class Lazy
                         if (property_exists($toClass, $key) && self::_validate($fromClass, $fromClass, $key) && self::_validate($fromClass, $toClass, $key)) {
                             $toClass->$key = $value;
                         }
+
                     }
                     break;
                 case self::AUTOCAST:
                     foreach (get_object_vars($toClass) as $key => $value) {
                         if (property_exists($toClass, $key)) {
                             $propertyClass = self::_getVarValue($toClass, $key);
+                            if (isset($fromClass->$key)) {
+                                $toClass->$key = self::castValue($propertyClass, $fromClass->$key);
+                            }
+                            $key = Str::camel($key);
                             if (isset($fromClass->$key)) {
                                 $toClass->$key = self::castValue($propertyClass, $fromClass->$key);
                             }
@@ -202,10 +208,36 @@ class Lazy
      */
     public static function transform(object $fromClass, object $toClass, array $mappings = []): object
     {
-        foreach (get_object_vars($toClass) as $key => $value) {
-            $propertyClass = self::_getVarValue($toClass, $key);
-            if (isset($fromClass->$key)) {
-                $toClass->$key = self::castValue($propertyClass, $fromClass->$key);
+        $destColumn = null;
+        if (method_exists($toClass, 'getColumns')) {
+            $destColumn = $toClass->getColumns();
+        }
+
+        if ($destColumn === null) {
+            foreach (get_object_vars($toClass) as $key => $value) {
+                $propertyClass = self::_getVarValue($toClass, $key);
+
+                if (isset($fromClass->$key) && $destColumn === null) {
+                    $toClass->$key = self::castValue($propertyClass, $fromClass->$key);
+                }
+
+                $snake = Str::snake($key, '_');
+                if (isset($fromClass->$snake) && $destColumn === null) {
+                    $toClass->$key = self::castValue($propertyClass, $fromClass->$snake);
+                }
+            }
+        } else {
+            foreach ($destColumn as $key => $value) {
+                if (isset($fromClass->$key)) {
+                    $toClass->$key = $fromClass->$key;
+                } else {
+                    $camel = Str::camel($key);
+                    if (isset($fromClass->$camel)) {
+                        $toClass->$key = $fromClass->$camel;
+                    }
+                }
+
+
             }
         }
 
@@ -273,10 +305,18 @@ class Lazy
                 if (isset($fromArray[$key])) {
                     $toClass->$key = $fromArray[$key];
                 }
+                $snake = Str::snake($key, '_');
+                if (isset($fromArray[$snake])) {
+                    $toClass->$key = $fromArray[$snake];
+                }
             } elseif ($option == self::AUTOCAST) {
                 $propertyClass = self::_getVarValue($toClass, $key);
                 if (isset($fromArray[$key])) {
                     $toClass->$key = self::castValue($propertyClass, $fromArray[$key]);
+                }
+                $snake = Str::snake($key, '_');
+                if (isset($fromArray[$snake])) {
+                    $toClass->$key = self::castValue($propertyClass, $fromArray[$snake]);
                 }
             }
 
