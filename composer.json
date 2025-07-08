@@ -1,6 +1,8 @@
 {
   "name": "webappid/lazy",
-  "description": "Laravel Lazy",
+  "version": "2.0.0",
+  "description": "A lightweight utility for copying data between arrays and PHP objects, with optional type autocasting.",
+  "type": "library",
   "license": "MIT",
   "authors": [
     {
@@ -8,20 +10,33 @@
       "email": "dyan.galih@gmail.com"
     }
   ],
-  "minimum-stability": "dev",
-  "autoload": {
-    "psr-4": {
-      "WebAppId\\Lazy\\": "src"
-    }
-  },
   "require": {
     "php": ">=8.0.0",
-    "illuminate/support": "^8.0|^9.0",
-    "ext-json": "*"
+    "ext-json": "*",
+    "illuminate/support": "^12.19"
+  },
+  "autoload": {
+    "psr-4": {
+      "WebAppId\\Lazy\\": "src/"
+    }
   },
   "extra": {
     "branch-alias": {
       "dev-master": "1.0-dev"
     }
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "keywords": [
+    "php",
+    "object-mapping",
+    "array-to-object",
+    "data-transfer",
+    "autocast",
+    "lazy"
+  ],
+  "support": {
+    "email": "dyan.galih@gmail.com",
+    "source": "https://gitlab.com/your-namespace/lazy"
   }
 }

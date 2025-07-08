@@ -1,326 +1,334 @@
 <?php
 
-
 namespace WebAppId\Lazy\Tools;
 
 use Exception;
 use Illuminate\Support\Str;
 use ReflectionException;
 use ReflectionProperty;
+use ReflectionClass;
+use ReflectionType;
+use ReflectionUnionType;
 
 /**
  * @author: Dyan Galih<dyan.galih@gmail.com>
  * Date: 2019-07-02
  * Time: 07:11
  * Class Lazy
- * @package WebAppId\DDD\Tools
+ * @package WebAppId\Lazy\Tools
+ *
+ * This class provides utilities for copying and transforming properties between objects,
+ * automatically casting values to the destination property's declared type,
+ * leveraging PHP 8+ features for improved type safety and reflection.
+ * It supports both generic objects and Laravel models (via getFillable).
  */
 class Lazy
 {
-    /**
-     * @var int
-     */
-    public const NONE = 1;
+    // The AUTOCAST constant is removed as auto-casting is now the default and only behavior for transformation.
 
     /**
-     * @Var int
+     * Validates if a source value is compatible with the expected type of a destination property.
+     * This method is primarily used internally by castValue to determine if a cast is feasible.
+     *
+     * @param string $sourceType
+     * @param string $targetType The declared type of the destination property.
+     * @param mixed $sourceValueForSpecificChecks The actual source value (for specific checks like is_int for float->int).
+     * @return bool True if types are compatible.
      */
-    public const VALIDATE_ORIGIN = 2;
-
-    /**
-     * @var int
-     */
-    public const VALIDATE_DEST = 3;
-
-    /**
-     * @var int
-     */
-    public const VALIDATE_BOTH = 4;
-
-    /**
-     * @var int
-     */
-    public const AUTOCAST = 5;
-
-
-    /**
-     * @param object $fromClass
-     * @param object $toClass
-     * @param int $option
-     * @return object
-     */
-    public static function copy(object $fromClass, object $toClass, int $option = self::NONE): object
+    private static function isTypeCompatible(string $sourceType, string $targetType, mixed $sourceValueForSpecificChecks): bool
     {
-        try {
-            switch ($option) {
-                case self::VALIDATE_ORIGIN:
-                    foreach (get_object_vars($fromClass) as $key => $value) {
-                        if (self::_validate($fromClass, $fromClass, $key)) {
-                            $toClass->$key = $value;
-                        }
-                    }
-                    break;
-                case self::VALIDATE_DEST:
-                    foreach (get_object_vars($toClass) as $key => $value) {
-                        if (property_exists($toClass, $key) && (self::_validate($fromClass, $toClass, $key))) {
-                            $toClass->$key = $fromClass->$key;
-                        }
-                    }
-                    break;
-                case self::VALIDATE_BOTH:
-                    foreach (get_object_vars($fromClass) as $key => $value) {
-                        if (property_exists($toClass, $key) && self::_validate($fromClass, $fromClass, $key) && self::_validate($fromClass, $toClass, $key)) {
-                            $toClass->$key = $value;
-                        }
+        // Normalize PHP's gettype() output to common type names for comparison
+        $normalizedSourceType = match ($sourceType) {
+            'integer' => 'int',
+            'boolean' => 'bool',
+            'double' => 'float', // gettype returns 'double' for floats
+            'NULL' => 'null',
+            default => $sourceType,
+        };
 
-                    }
-                    break;
-                case self::AUTOCAST:
-                    foreach (get_object_vars($toClass) as $key => $value) {
-                        if (property_exists($toClass, $key)) {
-                            $propertyClass = self::_getVarValue($toClass, $key);
-                            if (isset($fromClass->$key)) {
-                                $toClass->$key = self::castValue($propertyClass, $fromClass->$key);
-                            }
-                            $key = Str::camel($key);
-                            if (isset($fromClass->$key)) {
-                                $toClass->$key = self::castValue($propertyClass, $fromClass->$key);
-                            }
-                        }
-                    }
-                    break;
-                default:
-                    foreach (get_object_vars($fromClass) as $key => $value) {
-                        $toClass->$key = $value;
-                    }
-                    break;
-
-            }
-        } catch (Exception $exception) {
-            report($exception);
-        }
-
-
-        return $toClass;
-    }
-
-    /**
-     * @param $fromClass
-     * @param $toClass
-     * @param $key
-     * @return bool
-     * @throws Exception
-     */
-    private static function _validate($fromClass, $toClass, $key)
-    {
-        $propertyClass = self::_getVarValue($toClass, $key);
-        if (gettype($fromClass->$key) == $propertyClass) {
+        // Direct match
+        if ($normalizedSourceType === $targetType) {
             return true;
-        } else {
-            throw new Exception('Type Mismatch on property ' . $key . '. The property type is ' . $propertyClass . ' but the value type is ' . gettype($fromClass->$key));
-        }
-    }
-
-    private static function _getVarValue($toClass, $key)
-    {
-        $propertyClass = "";
-        try {
-            $property = new ReflectionProperty($toClass, $key);
-            $propertyClass = self::getVar($property);
-        } catch (ReflectionException $e) {
-            report($e);
         }
 
-        return $propertyClass;
+        // Handle specific cases for numeric types where PHP might implicitly convert
+        if ($normalizedSourceType === 'int' && $targetType === 'float') {
+            return true;
+        }
+        // Allow float to int if the float value is actually an integer (e.g., 5.0 to 5)
+        if ($normalizedSourceType === 'float' && $targetType === 'int' && is_int($sourceValueForSpecificChecks)) {
+            return true;
+        }
+
+        // Handle 'null' compatibility with nullable types or 'mixed'
+        if ($normalizedSourceType === 'null' && (str_starts_with($targetType, '?') || $targetType === 'null' || $targetType === 'mixed')) {
+            return true;
+        }
+
+        // Handle object type compatibility (e.g., if target is 'object' or a specific class)
+        if ($normalizedSourceType === 'object' && $targetType === 'object') {
+            return true;
+        }
+        // If the source is an object, check if it's an instance of the target class or interface
+        if ($sourceType === 'object' && is_a($sourceValueForSpecificChecks, $targetType, true)) {
+            return true;
+        }
+
+        // 'mixed' type in destination accepts anything
+        if ($targetType === 'mixed') {
+            return true;
+        }
+
+        return false;
     }
 
     /**
-     * @param ReflectionProperty $property
-     * @return mixed|null
+     * Gets the native PHP type(s) of a property using Reflection (PHP 8+).
+     *
+     * @param object $class The object to inspect.
+     * @param string $key The property name.
+     * @return string|array|null The property type (e.g., 'string', 'int', 'bool', 'array', 'mixed', 'object'),
+     * an array of types for union types, or null if not typed or property doesn't exist.
      */
-    private static function getVar(ReflectionProperty $property)
+    private static function getPropertyNativeType(object $class, string $key): string|array|null
     {
-        $typeMapping = [];
-        $typeMapping['int'] = 'integer';
-        $typeMapping['bool'] = 'boolean';
+        try {
+            $reflectionClass = new ReflectionClass($class);
+            if ($reflectionClass->hasProperty($key)) {
+                $property = $reflectionClass->getProperty($key);
+                $type = $property->getType(); // Returns ReflectionType, ReflectionNamedType, or ReflectionUnionType
 
-        // Get the content of the @var annotation
-        if (preg_match('/@var\s+([^\s]+)/', $property->getDocComment(), $matches)) {
-            if (isset($typeMapping[$matches[1]])) {
-                return $typeMapping[$matches[1]];
-            } else {
-                return $matches[1];
+                if ($type === null) {
+                    return null; // Property has no type declaration
+                }
+
+                if ($type instanceof ReflectionUnionType) {
+                    // For union types (e.g., 'int|string'), return an array of type names
+                    return array_map(fn(ReflectionType $t) => $t->getName(), $type->getTypes());
+                }
+
+                // For ReflectionNamedType (single type)
+                return $type->getName();
             }
-        } else {
+        } catch (ReflectionException $e) {
+            // Log or handle the exception if property doesn't exist or other reflection error.
+            // For example: error_log("Reflection error for property {$key} on class " . get_class($class) . ": " . $e->getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Casts a value to a specified type.
+     * Handles PHP 8+ native types like 'int', 'float', 'bool', 'string', 'array', 'object'.
+     *
+     * @param string|array|null $propertyType The target type(s) (e.g., 'int', 'string', ['int', 'null']).
+     * @param mixed $from The value to cast.
+     * @return float|object|int|bool|array|string|null The casted value, or original if type is unknown or not primitive.
+     * @throws Exception If the value cannot be cast to any of the target types (for union types).
+     */
+    private static function castValue(string|array|null $propertyType, mixed $from): float|object|int|bool|array|string|null
+    {
+        // If propertyType is null, no explicit type is declared, return original value.
+        if ($propertyType === null) {
+            return $from;
+        }
+
+        // If propertyType is an array (union type), try to cast to the first compatible type.
+        if (is_array($propertyType)) {
+            foreach ($propertyType as $type) {
+                if (self::isTypeCompatible(gettype($from), $type, $from)) {
+                    return self::castValue($type, $from); // Recursively cast to the compatible type
+                }
+            }
+            // If no type in the union is compatible, throw an exception.
+            throw new Exception(
+                'Cannot cast value of type ' . gettype($from) .
+                ' to any of the union types: [' . implode(', ', $propertyType) . ']'
+            );
+        }
+
+        // Handle nullable types (e.g., '?string' or 'string|null')
+        if ($from === null && (str_starts_with($propertyType, '?') || $propertyType === 'null')) {
             return null;
         }
-    }
 
-    private static function castValue($propertyClass, $from)
-    {
-        switch ($propertyClass) {
-            case "integer":
-                $value = (int)$from;
-                break;
-            case "float":
-                $value = (float)$from;
-                break;
-            case "double":
-                $value = (double)$from;
-                break;
-            case "boolean":
-                $value = (boolean)$from;
-                break;
-            case "object":
-                $value = (object)$from;
-                break;
-            case "array":
-                $value = (array)$from;
-                break;
-            case "string":
-                $value = (string)$from;
-                break;
-            default :
-                $value = $from;
-                break;
-        }
-        return $value;
+        // Perform the actual casting based on the target type
+        return match ($propertyType) {
+            "int", "integer" => (int)$from,
+            "float", "double" => (float)$from,
+            "bool", "boolean" => (bool)$from,
+            "object" => (object)$from,
+            "array" => (array)$from,
+            "string" => (string)$from,
+            "mixed" => $from, // 'mixed' type accepts anything, no explicit cast needed
+            default => $from, // Return original if type is unknown or not a primitive cast
+        };
     }
 
     /**
-     * @param array $datas
-     * @return array
+     * Converts null values in an array to empty strings.
+     *
+     * @param array $data The input array.
+     * @return array The array with nulls converted to empty strings.
      */
-    public static function arrayNullToEmpty(array $datas): array
+    public static function arrayNullToEmpty(array $data): array
     {
-        $newData = [];
-        foreach ($datas as $key => $value) {
-            $newData[$key] = $value == null ? "" : $value;
-        }
-        return $newData;
+        return array_map(function ($value) {
+            return $value === null ? "" : $value;
+        }, $data);
     }
 
     /**
-     * @param object $fromClass
-     * @param object $toClass
-     * @param array $mappings
-     * @return object
+     * Transforms properties from a source object to a destination object.
+     * This method automatically copies values based on the destination object's public properties,
+     * handles camelCase/snake_case conversions, and casts values to the destination property's
+     * declared type. It also supports explicit property mappings and Laravel models.
+     *
+     * @param object $fromClass The source object.
+     * @param object $toClass The destination object.
+     * @param array $mappings An associative array for explicit property mappings (dest_prop => source_prop).
+     * @return object The modified destination object.
+     * @throws Exception If a type mismatch occurs during casting that cannot be resolved.
      */
     public static function transform(object $fromClass, object $toClass, array $mappings = []): object
     {
-        $destColumn = null;
-        if (method_exists($toClass, 'getColumns')) {
-            $destColumn = $toClass->getColumns();
-        }
-
-        if ($destColumn === null) {
-            foreach (get_object_vars($toClass) as $key => $value) {
-                $propertyClass = self::_getVarValue($toClass, $key);
-
-                if (isset($fromClass->$key) && $destColumn === null) {
-                    $toClass->$key = self::castValue($propertyClass, $fromClass->$key);
-                }
-
-                $snake = Str::snake($key, '_');
-                if (isset($fromClass->$snake) && $destColumn === null) {
-                    $toClass->$key = self::castValue($propertyClass, $fromClass->$snake);
-                }
+        try {
+            $destColumns = null;
+            // Check if the destination class has a 'getColumns' method (e.g., for DTOs/Models)
+            if (method_exists($toClass, 'getColumns')) {
+                $destColumns = $toClass->getColumns();
             }
-        } else {
-            foreach ($destColumn as $key => $value) {
-                if (isset($fromClass->$key)) {
-                    $toClass->$key = $fromClass->$key;
-                } else {
-                    $camel = Str::camel($key);
-                    if (isset($fromClass->$camel)) {
-                        $toClass->$key = $fromClass->$camel;
+
+            // Determine which properties to iterate over in the destination class.
+            // If 'getColumns' exists, use its output; otherwise, use all public properties.
+            $propertiesToIterate = $destColumns ?? get_object_vars($toClass);
+
+            foreach ($propertiesToIterate as $key => $value) {
+                // Get the declared type of the destination property
+                $destinationPropertyType = self::getPropertyNativeType($toClass, $key);
+
+                // 1. Try direct property name match
+                if (property_exists($fromClass, $key)) {
+                    $toClass->$key = self::castValue($destinationPropertyType, $fromClass->$key);
+                }
+                // 2. If not found, try camelCase conversion (e.g., 'user_id' in source to 'userId' in dest)
+                else {
+                    $camelKey = Str::camel($key);
+                    if (property_exists($fromClass, $camelKey)) {
+                        $toClass->$key = self::castValue($destinationPropertyType, $fromClass->$camelKey);
+                    }
+                    // 3. If still not found, try snake_case conversion (e.g., 'userId' in source to 'user_id' in dest)
+                    else {
+                        $snakeKey = Str::snake($key, '_');
+                        if (property_exists($fromClass, $snakeKey)) {
+                            $toClass->$key = self::castValue($destinationPropertyType, $fromClass->$snakeKey);
+                        }
                     }
                 }
-
-
             }
-        }
 
-        foreach ($mappings as $mapping => $value) {
-            if (property_exists($toClass, $mapping)) {
-                $propertyClass = self::_getVarValue($toClass, $mapping);
-                $toClass->$mapping = self::castValue($propertyClass, $fromClass->$value);
+            // Apply explicit mappings, which take precedence over automatic mapping.
+            foreach ($mappings as $sourceProp => $destinationProp) {
+                if (property_exists($toClass, $destinationProp) && property_exists($fromClass, $sourceProp)) {
+                    $destinationPropertyType = self::getPropertyNativeType($toClass, $destinationProp);
+                    $toClass->$destinationProp = self::castValue($destinationPropertyType, $fromClass->$sourceProp);
+                }
             }
+        } catch (Exception $exception) {
+            // Re-throw the exception to allow the calling code to handle it.
+            // For Laravel specific logging, you would use: report($exception);
+            throw $exception;
         }
 
         return $toClass;
     }
 
     /**
-     * @param object $class
-     * @return bool
-     * @throws Exception
+     * Validates all public properties of an object against their declared types.
+     * This method provides a standalone utility for type validation of an object's own state.
+     *
+     * @param object $class The object whose properties are to be validated.
+     * @return bool True if all properties match their types.
+     * @throws Exception If any type mismatch is found.
      */
-    public static function validate(object $class)
+    public static function validate(object $class): bool
     {
-        $status = true;
+        // Iterate through all public properties of the given class
         foreach (get_object_vars($class) as $key => $value) {
-            if ($status) {
-                $status = self::_validate($class, $class, $key);
+            // Get the declared type of the property
+            $declaredType = self::getPropertyNativeType($class, $key);
+            // Get the actual type of the property's current value
+            $actualType = gettype($value);
+
+            // If a declared type exists and the actual type is not compatible, throw an exception.
+            // This uses the same compatibility logic as casting.
+            if ($declaredType !== null) {
+                if (is_array($declaredType)) { // Handle union types
+                    $isCompatible = false;
+                    foreach ($declaredType as $type) {
+                        if (self::isTypeCompatible($actualType, $type, $value)) {
+                            $isCompatible = true;
+                            break;
+                        }
+                    }
+                    if (!$isCompatible) {
+                        throw new Exception(
+                            'Type Mismatch on property ' . $key .
+                            '. Expected one of [' . implode(', ', $declaredType) .
+                            '] but found type ' . $actualType
+                        );
+                    }
+                } else { // Handle single type
+                    if (!self::isTypeCompatible($actualType, $declaredType, $value)) {
+                        throw new Exception(
+                            'Type Mismatch on property ' . $key .
+                            '. Expected type ' . $declaredType .
+                            ' but found type ' . $actualType
+                        );
+                    }
+                }
             }
         }
-
-        return $status;
+        return true; // If no exception is thrown, all properties are valid.
     }
 
     /**
-     * @param string $fromJson
-     * @param object $toClass
-     * @param int $option
-     * @return object
-     * @throws Exception
+     * Copies data from a JSON string to an object using the transform method.
+     *
+     * @param string $fromJson The JSON string to decode.
+     * @param object $toClass The destination object.
+     * @param array $mappings An associative array for explicit property mappings (dest_prop => source_prop).
+     * @return object The modified destination object.
+     * @throws Exception If JSON decoding fails or during transformation.
      */
-    public static function copyFromJson(string $fromJson, object $toClass, int $option = self::NONE): object
+    public static function copyFromJson(string $fromJson, object $toClass, array $mappings = []): object
     {
-        return self::copyFromArray(json_decode($fromJson, true), $toClass, $option);
+        $data = json_decode($fromJson, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new Exception('JSON decoding failed: ' . json_last_error_msg());
+        }
+        return self::copyFromArray($data, $toClass, $mappings);
     }
 
     /**
-     * @param array $fromArray
-     * @param object $toClass
-     * @param int $option
-     * @return object
-     * @throws Exception
+     * Copies data from an array to an object using the transform method,
+     * based on destination object's public properties or fillable properties
+     * if the destination is a Laravel Model, with automatic type casting.
+     *
+     * @param array $fromArray The source array.
+     * @param object $toClass The destination object.
+     * @param array $mappings An associative array for explicit property mappings (dest_prop => source_prop).
+     * @return object The modified destination object.
+     * @throws Exception If type validation fails during casting.
      */
-    public static function copyFromArray(array $fromArray, object $toClass, int $option = self::NONE): object
+    public static function copyFromArray(array $fromArray, object $toClass, array $mappings = []): object
     {
-        $model = false;
-        if (method_exists($toClass, 'getFillable')) {
-            $varList = $toClass->getFillable();
-            $vars = array_flip($varList);
-            $model = true;
-        } else {
-            $vars = get_object_vars($toClass);
-        }
-        foreach ($vars as $key => $value) {
-            if ($option == self::NONE) {
-                if (!$model) {
-                    self::_validate((object)$fromArray, $toClass, $key);
-                }
-                if (isset($fromArray[$key])) {
-                    $toClass->$key = $fromArray[$key];
-                }
-                $snake = Str::snake($key, '_');
-                if (isset($fromArray[$snake])) {
-                    $toClass->$key = $fromArray[$snake];
-                }
-            } elseif ($option == self::AUTOCAST) {
-                $propertyClass = self::_getVarValue($toClass, $key);
-                if (isset($fromArray[$key])) {
-                    $toClass->$key = self::castValue($propertyClass, $fromArray[$key]);
-                }
-                $snake = Str::snake($key, '_');
-                if (isset($fromArray[$snake])) {
-                    $toClass->$key = self::castValue($propertyClass, $fromArray[$snake]);
-                }
-            }
+        // Convert the array to an anonymous object to leverage the object-based transform logic.
+        // This allows 'transform' to handle property existence checks and casing conventions uniformly.
+        $fromObject = (object) $fromArray;
 
-        }
-        return $toClass;
+        // Use the transform method to perform the actual copying and casting.
+        // The mappings will be applied by transform.
+        return self::transform($fromObject, $toClass, $mappings);
     }
 }

@@ -17,20 +17,20 @@ class Join
     /**
      * @var object
      */
-    public $class;
+    public object $class;
 
     /**
      * @var string
      */
-    public $foreign;
+    public string $foreign;
 
     /**
      * @var string
      */
-    public $type = 'inner';
+    public string $type = 'inner';
 
     /**
      * @var string|null
      */
-    public $primary = null;
+    public ?string $primary = null;
 }

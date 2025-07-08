@@ -25,17 +25,17 @@ trait RepositoryTrait
     /**
      * @var array
      */
-    protected $joinTable = [];
+    protected array $joinTable = [];
     /**
      * @var array
      */
-    private $column = [];
+    private array $column = [];
 
     /**
      * @param Model $model
      * @return Model
      */
-    protected function getJoin(Model $model)
+    protected function getJoin(Model $model): Model
     {
         $this->column[$model->getTable()] = $model->getColumns();
 
@@ -46,10 +46,10 @@ trait RepositoryTrait
                 $this->column[$key] = $table->getColumns();
                 $builder = $builder->join(
                     $table->getTable() . ' as ' . $key,
-                    (strpos($value->foreign, '.') === false ? $model->getTable() . '.' : '') . $value->foreign,
+                    (!str_contains($value->foreign, '.') ? $model->getTable() . '.' : '') . $value->foreign,
                     '=',
-                    (isset($value->primary) ? $value->primary : $key . '.' . $table->getKeyName()),
-                    isset($value->type) ? $value->type : 'inner');
+                    ($value->primary ?? $key . '.' . $table->getKeyName()),
+                    $value->type ?? 'inner');
             } catch (BindingResolutionException $e) {
                 report($e);
             }

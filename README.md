@@ -1,100 +1,101 @@
 # Lazy
 
-Lazy is library to transform from json object into php class or from php class into php class. 
+**Lazy** is a simple PHP library that allows you to transform data from JSON arrays into PHP objects (POPOs), or copy data between two PHP classes with ease — optionally with type autocasting.
 
-For example, You have an array data like this:
-````
-    $profileArray =[
-        'name' => 'John Doe',
-        'age' => '17'
-    ]
-````
+---
 
-You just need create a POPO file like this:
-````
+## 🚀 Features
+
+- Transform associative arrays (e.g., from JSON) into PHP objects
+- Copy data from one PHP object to another
+- Autocast values to match property types using docblocks
+- Lightweight, no external dependencies
+
+---
+
+## 🧱 Example: Array to Object
+
+Suppose you have the following array:
+
+```php
+$profileArray = [
+    'name' => 'John Doe',
+    'age' => '17'
+];
+```
+
+And a plain PHP class (POPO) like this:
+
+```php
 <?php
 
-class Profile{
-
+class Profile
+{
     /**
-    * @var string
-    */
+     * @var string
+     */
     public $name;
 
     /**
-    * @var int
-    */
+     * @var int
+     */
     public $age;
 }
-````
+```
 
-What you do just create script like this:
-````
+You can map the array to the object using Lazy:
+
+```php
 <?php
 
-    $profile = new Profile();
+$profile = new Profile();
+$profile = Lazy::copyFromArray($profileArray, $profile);
 
-    $profile = Lazy::copyFromArray($profileArray, $profile, Lazy::AUTOCAST);
+echo $profile->name; // John Doe
+```
 
-    echo $profile->name
-````
+---
 
-If you want to copy data from any php class into any other php class you can do like this.
+## 🔄 Example: Object to Object
 
-For example origin php class file:
+You can also copy values between two PHP objects:
 
-````
+```php
 <?php
-class Member{
-    
-    /**
-    * @var string
-    */
-    public $name;
 
-    /**
-    * @var int
-    */
-    public age;
+class Member
+{
+    public string $name = '';
+    public int $age = 0;
 }
-````
 
-For the destination php class file like this:
-````
-<?php
-
-class Profile{
-
-    /**
-    * @var string
-    */
-    public $name;
-
-    /**
-    * @var int
-    */
-    public age;
+class Profile
+{
+    public string $name = '';
+    public int $age = 0;
 }
-````
-
-You can create lazy script like this:
-
-````
-<?php
 
 $member = new Member();
 $member->name = 'John Doe';
 $member->age = 17;
 
 $profile = new Profile();
-$profile Lazy::copy($member, $profile, Lazy::AUTOCAST);
+$profile = Lazy::transform($member, $profile);
 
-echo $profile->name;
+echo $profile->name; // John Doe
+```
 
-````
+---
 
-It's very easy, isn't it?
+## 💬 Support
 
-If you have any question related this package, please don't hesitate to chat me at telegram @DyanGalih or drop me an email at dyan.galih@gmail.com
+If you have any questions or feedback, feel free to reach out:
 
-Happy Coding, Happy Lazy, and be a Lazy Coder. 
+- 📧 Email: [dyan.galih@gmail.com](mailto:dyan.galih@gmail.com)
+- 💬 Telegram: [@DyanGalih](https://t.me/DyanGalih)
+
+---
+
+## 🧘 Happy Coding!
+
+> Be Lazy. Be Efficient. Happy Coding with **Lazy**!

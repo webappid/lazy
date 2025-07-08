@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\Model;
  * Date: 18/04/20
  * Time: 18.56
  * Class PopoTools
- * @package WebAppId\DDD\Tools
+ * @package WebAppId\Lazy\Tools
  */
 class PopoTools
 {
@@ -44,7 +44,7 @@ class PopoTools
      * @param $object
      * @return array
      */
-    public function serialize($object)
+    public function serialize($object): array
     {
         $objectAsArray = (array)$object;
 
