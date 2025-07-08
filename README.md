@@ -31,15 +31,8 @@ And a plain PHP class (POPO) like this:
 
 class Profile
 {
-    /**
-     * @var string
-     */
-    public $name;
-
-    /**
-     * @var int
-     */
-    public $age;
+    public string $name = '';
+    public int $age = 0;
 }
 ```
 
