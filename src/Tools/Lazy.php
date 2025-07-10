@@ -4,9 +4,8 @@ namespace WebAppId\Lazy\Tools;
 
 use Exception;
 use Illuminate\Support\Str;
-use ReflectionException;
-use ReflectionProperty;
 use ReflectionClass;
+use ReflectionException;
 use ReflectionType;
 use ReflectionUnionType;
 
@@ -209,10 +208,15 @@ class Lazy
 
                 // 1. Try direct property name match
                 if (property_exists($fromClass, $key)) {
-                    $toClass->$key = self::castValue($destinationPropertyType, $fromClass->$key);
+                    if (class_exists($destinationPropertyType)) {
+                        dd($destinationPropertyType, $key);
+                    } else {
+                        $toClass->$key = self::castValue($destinationPropertyType, $fromClass->$key);
+                    }
                 }
                 // 2. If not found, try camelCase conversion (e.g., 'user_id' in source to 'userId' in dest)
                 else {
+
                     $camelKey = Str::camel($key);
                     if (property_exists($fromClass, $camelKey)) {
                         $toClass->$key = self::castValue($destinationPropertyType, $fromClass->$camelKey);
@@ -221,7 +225,11 @@ class Lazy
                     else {
                         $snakeKey = Str::snake($key, '_');
                         if (property_exists($fromClass, $snakeKey)) {
-                            $toClass->$key = self::castValue($destinationPropertyType, $fromClass->$snakeKey);
+                            if (class_exists($destinationPropertyType)) {
+                                $toClass->$key = self::transform((object)$fromClass->$snakeKey, new $destinationPropertyType());
+                            } else {
+                                $toClass->$key = self::castValue($destinationPropertyType, $fromClass->$snakeKey);
+                            }
                         }
                     }
                 }
